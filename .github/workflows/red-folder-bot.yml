@@ -39,7 +39,7 @@ jobs:
         env:
           DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
           REMINDER_MINUTES_BEFORE: "30"
-          DAILY_SUMMARY_TIME: "00:36"
+          DAILY_SUMMARY_TIME: "00:40"
           TIMEZONE: "Europe/Amsterdam"
           CURRENCIES: ""
         run: |
