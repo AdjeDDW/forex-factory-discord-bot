@@ -2,7 +2,7 @@ name: Forex Factory Red Folder Bot
 
 on:
   schedule:
-    - cron: "*/5 * * * *"
+    - cron: "3,8,13,18,23,28,33,38,43,48,53,58 * * * *"
   workflow_dispatch:
     inputs:
       mode:
@@ -39,7 +39,7 @@ jobs:
         env:
           DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
           REMINDER_MINUTES_BEFORE: "30"
-          DAILY_SUMMARY_TIME: "00:40"
+          DAILY_SUMMARY_TIME: "08:00"
           TIMEZONE: "Europe/Amsterdam"
           CURRENCIES: ""
         run: |
