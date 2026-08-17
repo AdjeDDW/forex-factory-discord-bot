@@ -1,0 +1,63 @@
+name: Forex Factory Red Folder Bot
+
+on:
+  schedule:
+    - cron: "*/5 * * * *"
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: "Handmatige actie (voor testen, los van de normale planning)"
+        required: true
+        default: normal
+        type: choice
+        options:
+          - normal
+          - test
+          - show
+          - force-summary
+          - force-reminder
+
+permissions:
+  contents: write
+
+jobs:
+  run-bot:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Repo uitchecken
+        uses: actions/checkout@v4
+
+      - name: Python installeren
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Dependencies installeren
+        run: pip install -r requirements.txt
+
+      - name: Bot draaien
+        env:
+          DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
+          REMINDER_MINUTES_BEFORE: "30"
+          DAILY_SUMMARY_TIME: "08:00"
+          TIMEZONE: "Europe/Amsterdam"
+          CURRENCIES: ""
+        run: |
+          MODE="${{ github.event.inputs.mode || 'normal' }}"
+          if [ "$MODE" = "normal" ]; then
+            python ff_discord_bot.py
+          else
+            python ff_discord_bot.py "--$MODE"
+          fi
+
+      - name: Status terugschrijven naar de repo (state.json)
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add state.json
+          if ! git diff --cached --quiet; then
+            git commit -m "Update bot status"
+            git push
+          else
+            echo "Geen wijzigingen in state.json, niks te committen."
+          fi
