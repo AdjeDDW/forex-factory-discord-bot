@@ -39,7 +39,7 @@ jobs:
         env:
           DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
           REMINDER_MINUTES_BEFORE: "30"
-                    DAILY_SUMMARY_TIME: "00:28"
+          DAILY_SUMMARY_TIME: "00:36"
           TIMEZONE: "Europe/Amsterdam"
           CURRENCIES: ""
         run: |
@@ -47,7 +47,7 @@ jobs:
           if [ "$MODE" = "normal" ]; then
             python ff_discord_bot.py
           else
-            python ff_discord_bot.py
+            python ff_discord_bot.py "--$MODE"
           fi
 
       - name: Status terugschrijven naar de repo (state.json)
