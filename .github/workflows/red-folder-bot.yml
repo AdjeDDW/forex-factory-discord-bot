@@ -16,6 +16,7 @@ on:
           - show
           - force-summary
           - force-reminder
+          - force-summary-tomorrow
 
 permissions:
   contents: write
