@@ -42,6 +42,7 @@ jobs:
           DAILY_SUMMARY_TIME: "06:00"
           TIMEZONE: "Europe/Amsterdam"
           CURRENCIES: ""
+          ADMIN_ROLE_ID: "1529567015302594691"
         run: |
           MODE="${{ github.event.inputs.mode || 'normal' }}"
           if [ "$MODE" = "normal" ]; then
