@@ -134,6 +134,13 @@ def get_red_events() -> list:
 # ---------------------------------------------------------------------------
 # Berichten opbouwen
 # ---------------------------------------------------------------------------
+def discord_timestamp(t: datetime, style: str = "R") -> str:
+    """Discord's eigen tijdstip-markup (<t:UNIX:STYLE>). Discord rendert dit zelf,
+    live bijgewerkt en automatisch in de tijdzone van elke lezer.
+    Stijl "R" = relatief, bv. "over 12 minuten" — telt vanzelf af zonder dat de bot iets hoeft te doen."""
+    return f"<t:{int(t.timestamp())}:{style}>"
+
+
 def build_summary_message(events_for_day: list, label: str) -> str:
     lines = []
     mention = admin_mention()
@@ -143,7 +150,10 @@ def build_summary_message(events_for_day: list, label: str) -> str:
         lines.append(f"\U0001F4C5 **Red Folder (High Impact) events {label}:**")
         for e in sorted(events_for_day, key=parse_event_time):
             t = parse_event_time(e)
-            lines.append(f"\U0001F534 `{t.strftime('%H:%M')}` — **{e.get('country')}** — {e.get('title')}")
+            lines.append(
+                f"\U0001F534 `{t.strftime('%H:%M')}` — **{e.get('country')}** — {e.get('title')} "
+                f"({discord_timestamp(t, 'R')})"
+            )
     else:
         lines.append(f"\U0001F4C5 Geen Red Folder (High Impact) events {label}.")
     return "\n".join(lines)
@@ -157,6 +167,9 @@ def build_reminder_message(event: dict, minutes_until: float) -> str:
         lines.append(mention)
     lines.append(f"⚠️ **Red Folder event over {int(round(minutes_until))} minuten!**")
     lines.append(f"\U0001F534 `{t.strftime('%H:%M')}` — **{event.get('country')}** — {event.get('title')}")
+    # Live countdown: Discord telt dit zelf af (en toont het in ieders eigen tijdzone),
+    # zonder dat de bot opnieuw hoeft te versturen.
+    lines.append(f"⏳ Start {discord_timestamp(t, 'R')} ({discord_timestamp(t, 't')})")
     lines.append(f"Forecast: {event.get('forecast') or '—'} | Vorige waarde: {event.get('previous') or '—'}")
     return "\n".join(lines)
 
@@ -164,20 +177,27 @@ def build_reminder_message(event: dict, minutes_until: float) -> str:
 # ---------------------------------------------------------------------------
 # Discord
 # ---------------------------------------------------------------------------
-def send_discord_message(content: str) -> None:
+def send_discord_message(content: str) -> bool:
+    """Stuurt een bericht naar Discord. Geeft True terug bij succes, False bij mislukking,
+    zodat de aanroeper (main) alleen state bijwerkt als het bericht ook echt is aangekomen."""
     if not WEBHOOK_URL:
         print("WAARSCHUWING: geen DISCORD_WEBHOOK_URL ingesteld in .env. Bericht niet verstuurd:")
         print(content)
-        return
-    resp = requests.post(
-        WEBHOOK_URL,
-        json={"content": content, "allowed_mentions": {"parse": ["roles"]}},
-        timeout=15,
-    )
+        return False
+    try:
+        resp = requests.post(
+            WEBHOOK_URL,
+            json={"content": content, "allowed_mentions": {"parse": ["roles"]}},
+            timeout=15,
+        )
+    except requests.RequestException as exc:
+        print(f"Netwerkfout bij versturen naar Discord: {exc}")
+        return False
     if resp.status_code >= 300:
         print(f"Fout bij versturen naar Discord ({resp.status_code}): {resp.text}")
-    else:
-        print("Bericht verstuurd naar Discord.")
+        return False
+    print("Bericht verstuurd naar Discord.")
+    return True
 
 
 # ---------------------------------------------------------------------------
@@ -263,6 +283,7 @@ def main() -> None:
 
     red_events = [e for e in raw_events if is_red_folder(e) and currency_allowed(e)]
 
+
     # --- 1) Dagelijks overzicht ---
     today_str = now.strftime("%Y-%m-%d")
     if state.get("last_summary_date") != today_str:
@@ -277,9 +298,12 @@ def main() -> None:
                 e for e in red_events
                 if parse_event_time(e).strftime("%Y-%m-%d") == today_str
             ]
-            send_discord_message(build_summary_message(todays_red, "vandaag"))
-            state["last_summary_date"] = today_str
-            save_state(state)
+            success = send_discord_message(build_summary_message(todays_red, "vandaag"))
+            if success:
+                state["last_summary_date"] = today_str
+                save_state(state)
+            else:
+                print("Dagoverzicht is NIET gelukt te versturen; wordt bij de volgende run opnieuw geprobeerd.")
 
     # --- 2) Losse reminders vlak voor elk event ---
     notified = state.get("notified_events", {})
@@ -291,9 +315,11 @@ def main() -> None:
         t = parse_event_time(e)
         minutes_until = (t - now).total_seconds() / 60
         if 0 <= minutes_until <= REMINDER_MINUTES:
-            send_discord_message(build_reminder_message(e, minutes_until))
-            notified[eid] = now.isoformat()
-            changed = True
+            if send_discord_message(build_reminder_message(e, minutes_until)):
+                notified[eid] = now.isoformat()
+                changed = True
+            else:
+                print(f"Reminder voor {eid} is NIET gelukt te versturen; wordt bij de volgende run opnieuw geprobeerd.")
 
     if changed:
         state["notified_events"] = notified
