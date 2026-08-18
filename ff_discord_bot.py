@@ -16,7 +16,8 @@ Handige test-commando's (los van de normale automatische planning):
     python ff_discord_bot.py --show              Toont de eerstkomende red folder events, stuurt niets.
     python ff_discord_bot.py --force-summary      Stuurt het dagoverzicht opnieuw (ongeacht of dat al gebeurd is).
     python ff_discord_bot.py --force-reminder     Stuurt de reminder voor het eerstvolgende red folder event, nu meteen.
-Deze vier opties raken state.json niet aan (behalve het normale opschonen), dus ze verstoren
+    python ff_discord_bot.py --force-summary-tomorrow   Stuurt het dagoverzicht van morgen (testdoeleinden).
+Deze opties raken state.json niet aan (behalve het normale opschonen), dus ze verstoren
 de normale automatische planning niet.
 """
 
@@ -247,6 +248,19 @@ def run_force_summary() -> None:
     send_discord_message(build_summary_message(todays_red, "vandaag"))
 
 
+def run_force_summary_tomorrow() -> None:
+    """Test: stuurt het dagoverzicht alsof het morgen is (voor events van morgen)."""
+    now = datetime.now(LOCAL_TZ)
+    tomorrow_str = (now + timedelta(days=1)).strftime("%Y-%m-%d")
+    try:
+        red_events = get_red_events()
+    except Exception as exc:
+        print(f"Kon Forex Factory kalender niet ophalen: {exc}")
+        return
+    tomorrows_red = [e for e in red_events if parse_event_time(e).strftime("%Y-%m-%d") == tomorrow_str]
+    send_discord_message(build_summary_message(tomorrows_red, "morgen"))
+
+
 def run_force_reminder() -> None:
     now = datetime.now(LOCAL_TZ)
     try:
@@ -349,6 +363,10 @@ def build_arg_parser() -> argparse.ArgumentParser:
         "--force-reminder", action="store_true",
         help="Stuur nu meteen de reminder voor het eerstvolgende red folder event.",
     )
+    parser.add_argument(
+        "--force-summary-tomorrow", action="store_true",
+        help="Test: stuur het dagoverzicht van morgen (i.p.v. vandaag), ongeacht de tijd.",
+    )
     return parser
 
 
@@ -362,5 +380,7 @@ if __name__ == "__main__":
         run_force_summary()
     elif args.force_reminder:
         run_force_reminder()
+    elif args.force_summary_tomorrow:
+        run_force_summary_tomorrow()
     else:
         main()
