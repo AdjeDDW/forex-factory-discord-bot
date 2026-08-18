@@ -50,6 +50,15 @@ CURRENCIES = (
     else None
 )  # None betekent: alle valuta
 
+# Rol die getagd (gepingd) wordt bij het dagoverzicht en bij losse reminders.
+# Leeg laten (of weglaten uit .env) betekent: geen rol taggen.
+ADMIN_ROLE_ID = os.getenv("ADMIN_ROLE_ID", "").strip()
+
+
+def admin_mention() -> str:
+    return f"<@&{ADMIN_ROLE_ID}>" if ADMIN_ROLE_ID else ""
+
+
 CALENDAR_URL = "https://nfs.faireconomy.media/ff_calendar_thisweek.json"
 STATE_FILE = Path(__file__).resolve().parent / "state.json"
 
@@ -126,23 +135,30 @@ def get_red_events() -> list:
 # Berichten opbouwen
 # ---------------------------------------------------------------------------
 def build_summary_message(events_for_day: list, label: str) -> str:
+    lines = []
+    mention = admin_mention()
+    if mention:
+        lines.append(mention)
     if events_for_day:
-        lines = [f"📅 **Red Folder (High Impact) events {label}:**"]
+        lines.append(f"Red Folder (High Impact) events {label}:")
         for e in sorted(events_for_day, key=parse_event_time):
             t = parse_event_time(e)
-            lines.append(f"🔴 `{t.strftime('%H:%M')}` — **{e.get('country')}** — {e.get('title')}")
+            lines.append(f"{t.strftime('%H:%M')} - {e.get('country')} - {e.get('title')}")
     else:
-        lines = [f"📅 Geen Red Folder (High Impact) events {label}."]
+        lines.append(f"Geen Red Folder (High Impact) events {label}.")
     return "\n".join(lines)
 
 
 def build_reminder_message(event: dict, minutes_until: float) -> str:
     t = parse_event_time(event)
-    return (
-        f"⚠️ **Red Folder event over {int(round(minutes_until))} minuten!**\n"
-        f"🔴 `{t.strftime('%H:%M')}` — **{event.get('country')}** — {event.get('title')}\n"
-        f"Forecast: {event.get('forecast') or '—'} | Vorige waarde: {event.get('previous') or '—'}"
-    )
+    lines = []
+    mention = admin_mention()
+    if mention:
+        lines.append(mention)
+    lines.append(f"Red Folder event over {int(round(minutes_until))} minuten!")
+    lines.append(f"{t.strftime('%H:%M')} - {event.get('country')} - {event.get('title')}")
+    lines.append(f"Forecast: {event.get('forecast') or '-'} | Vorige waarde: {event.get('previous') or '-'}")
+    return "\n".join(lines)
 
 
 # ---------------------------------------------------------------------------
@@ -153,7 +169,11 @@ def send_discord_message(content: str) -> None:
         print("WAARSCHUWING: geen DISCORD_WEBHOOK_URL ingesteld in .env. Bericht niet verstuurd:")
         print(content)
         return
-    resp = requests.post(WEBHOOK_URL, json={"content": content}, timeout=15)
+    resp = requests.post(
+        WEBHOOK_URL,
+        json={"content": content, "allowed_mentions": {"parse": ["roles"]}},
+        timeout=15,
+    )
     if resp.status_code >= 300:
         print(f"Fout bij versturen naar Discord ({resp.status_code}): {resp.text}")
     else:
@@ -166,7 +186,7 @@ def send_discord_message(content: str) -> None:
 def run_test() -> None:
     now = datetime.now(LOCAL_TZ)
     send_discord_message(
-        f"✅ **Testbericht van je Forex Factory bot** — de webhook werkt! "
+        f"Testbericht van je Forex Factory bot - de webhook werkt! "
         f"({now.strftime('%d-%m-%Y %H:%M')} {TIMEZONE_NAME})"
     )
 
@@ -192,7 +212,7 @@ def run_show() -> None:
         t = parse_event_time(e)
         minutes_until = int((t - now).total_seconds() / 60)
         wanneer = f"over {minutes_until} min" if minutes_until >= 0 else f"{-minutes_until} min geleden"
-        print(f"  {t.strftime('%a %d-%m %H:%M')} — {e.get('country')} — {e.get('title')} ({wanneer})")
+        print(f"  {t.strftime('%a %d-%m %H:%M')} - {e.get('country')} - {e.get('title')} ({wanneer})")
 
 
 def run_force_summary() -> None:
