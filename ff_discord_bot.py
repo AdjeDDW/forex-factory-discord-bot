@@ -69,7 +69,7 @@ STATE_RETENTION_DAYS = 3
 
 # Na hoeveel uur een verstuurd Discord-bericht (dagoverzicht of reminder) automatisch
 # weer verwijderd wordt uit het kanaal.
-MESSAGE_DELETE_AFTER_HOURS = 0.25  # TIJDELIJK voor test (15 min) -- normaal 24
+MESSAGE_DELETE_AFTER_HOURS = 24
 
 
 # ---------------------------------------------------------------------------
@@ -102,25 +102,30 @@ def prune_notified_events(state: dict, now: datetime) -> None:
     state["notified_events"] = kept
 
 
-def track_sent_message(state: dict, message_id: str, now: datetime) -> None:
+def track_sent_message(state: dict, message_id: str, now: datetime, delete_after_hours: float = None) -> None:
     """Onthoudt een verstuurd bericht (met tijdstip), zodat het later automatisch
-    verwijderd kan worden."""
+    verwijderd kan worden. delete_after_hours kan per bericht afwijken van de
+    standaard MESSAGE_DELETE_AFTER_HOURS (bv. het weekoverzicht blijft langer staan)."""
     if not message_id:
         return
-    state.setdefault("sent_messages", []).append({"id": message_id, "posted_at": now.isoformat()})
+    entry = {"id": message_id, "posted_at": now.isoformat()}
+    if delete_after_hours is not None:
+        entry["delete_after_hours"] = delete_after_hours
+    state.setdefault("sent_messages", []).append(entry)
 
 
 def cleanup_old_messages(state: dict, now: datetime) -> None:
     """Verwijdert Discord-berichten die de bot eerder heeft gestuurd en die ouder zijn
-    dan MESSAGE_DELETE_AFTER_HOURS (dus het event/dagoverzicht is dan al lang geweest)."""
+    dan hun (eigen, of anders de standaard) verwijdertermijn."""
     sent = state.get("sent_messages", [])
-    cutoff = now - timedelta(hours=MESSAGE_DELETE_AFTER_HOURS)
     remaining = []
     for m in sent:
         try:
             posted = datetime.fromisoformat(m["posted_at"])
         except (KeyError, ValueError, TypeError):
             continue
+        hours = m.get("delete_after_hours", MESSAGE_DELETE_AFTER_HOURS)
+        cutoff = now - timedelta(hours=hours)
         if posted <= cutoff:
             delete_discord_message(m.get("id"))
         else:
@@ -187,6 +192,40 @@ def build_summary_message(events_for_day: list, label: str) -> str:
             )
     else:
         lines.append(f"\U0001F4C5 Geen Red Folder (High Impact) events {label}.")
+    return "\n".join(lines)
+
+
+DUTCH_WEEKDAYS = ["Maandag", "Dinsdag", "Woensdag", "Donderdag", "Vrijdag", "Zaterdag", "Zondag"]
+
+
+def build_week_summary_message(events_for_week: list, week_start: datetime) -> str:
+    lines = []
+    mention = admin_mention()
+    if mention:
+        lines.append(mention)
+    week_end = week_start + timedelta(days=6)
+    lines.append(
+        f"\U0001F4C5 **Red Folder (High Impact) week overzicht "
+        f"({week_start.strftime('%d-%m')} t/m {week_end.strftime('%d-%m')}):**"
+    )
+    by_day = {}
+    for e in events_for_week:
+        t = parse_event_time(e)
+        by_day.setdefault(t.strftime("%Y-%m-%d"), []).append(e)
+    for i in range(7):
+        day = week_start + timedelta(days=i)
+        day_str = day.strftime("%Y-%m-%d")
+        lines.append(f"\n**{DUTCH_WEEKDAYS[i]} {day.strftime('%d-%m')}**")
+        day_events = sorted(by_day.get(day_str, []), key=parse_event_time)
+        if day_events:
+            for e in day_events:
+                t = parse_event_time(e)
+                lines.append(
+                    f"\U0001F534 `{t.strftime('%H:%M')}` — **{e.get('country')}** — {e.get('title')} "
+                    f"({discord_timestamp(t, 'R')})"
+                )
+        else:
+            lines.append("Geen Red Folder events.")
     return "\n".join(lines)
 
 
@@ -319,6 +358,24 @@ def run_force_summary_tomorrow() -> None:
         save_state(state)
 
 
+def run_force_week_summary() -> None:
+    """Test: stuurt het weekoverzicht opnieuw, ongeacht welke dag het vandaag is."""
+    now = datetime.now(LOCAL_TZ)
+    week_start = now.replace(hour=0, minute=0, second=0, microsecond=0) - timedelta(days=now.weekday())
+    week_end = week_start + timedelta(days=7)
+    try:
+        red_events = get_red_events()
+    except Exception as exc:
+        print(f"Kon Forex Factory kalender niet ophalen: {exc}")
+        return
+    weeks_red = [e for e in red_events if week_start <= parse_event_time(e) < week_end]
+    message_id = send_discord_message(build_week_summary_message(weeks_red, week_start))
+    if message_id:
+        state = load_state()
+        track_sent_message(state, message_id, now, delete_after_hours=120)
+        save_state(state)
+
+
 def run_force_reminder() -> None:
     now = datetime.now(LOCAL_TZ)
     try:
@@ -361,16 +418,30 @@ def main() -> None:
 
     red_events = [e for e in raw_events if is_red_folder(e) and currency_allowed(e)]
 
-    # --- 1) Dagelijks overzicht ---
+    # --- 1) Dagelijks overzicht (op maandag: wekelijks overzicht i.p.v. dagoverzicht) ---
     today_str = now.strftime("%Y-%m-%d")
-    if state.get("last_summary_date") != today_str:
-        try:
-            summary_hh, summary_mm = (int(x) for x in DAILY_SUMMARY_TIME.split(":"))
-        except ValueError:
-            summary_hh, summary_mm = 8, 0
-        target = now.replace(hour=summary_hh, minute=summary_mm, second=0, microsecond=0)
+    is_monday = now.weekday() == 0
+    try:
+        summary_hh, summary_mm = (int(x) for x in DAILY_SUMMARY_TIME.split(":"))
+    except ValueError:
+        summary_hh, summary_mm = 8, 0
+    target = now.replace(hour=summary_hh, minute=summary_mm, second=0, microsecond=0)
 
-        if now >= target:
+    if is_monday:
+        if state.get("last_week_summary_date") != today_str and now >= target:
+            week_start = now.replace(hour=0, minute=0, second=0, microsecond=0) - timedelta(days=now.weekday())
+            week_end = week_start + timedelta(days=7)
+            weeks_red = [e for e in red_events if week_start <= parse_event_time(e) < week_end]
+            message_id = send_discord_message(build_week_summary_message(weeks_red, week_start))
+            if message_id:
+                state["last_week_summary_date"] = today_str
+                state["last_summary_date"] = today_str
+                track_sent_message(state, message_id, now, delete_after_hours=120)
+                save_state(state)
+            else:
+                print("Weekoverzicht is NIET gelukt te versturen; wordt bij de volgende run opnieuw geprobeerd.")
+    else:
+        if state.get("last_summary_date") != today_str and now >= target:
             todays_red = [
                 e for e in red_events
                 if parse_event_time(e).strftime("%Y-%m-%d") == today_str
@@ -434,6 +505,10 @@ def build_arg_parser() -> argparse.ArgumentParser:
         "--force-summary-tomorrow", action="store_true",
         help="Test: stuur het dagoverzicht van morgen (i.p.v. vandaag), ongeacht de tijd.",
     )
+    parser.add_argument(
+        "--force-week-summary", action="store_true",
+        help="Test: stuur het weekoverzicht opnieuw, ongeacht welke dag het is.",
+    )
     return parser
 
 
@@ -449,5 +524,7 @@ if __name__ == "__main__":
         run_force_reminder()
     elif args.force_summary_tomorrow:
         run_force_summary_tomorrow()
+    elif args.force_week_summary:
+        run_force_week_summary()
     else:
         main()
