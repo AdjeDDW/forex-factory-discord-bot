@@ -39,7 +39,7 @@ jobs:
       - name: Bot draaien
         env:
           DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
-          REMINDER_MINUTES_BEFORE: "30"
+          REMINDER_MINUTES_BEFORE: "60"
           DAILY_SUMMARY_TIME: "06:00"
           TIMEZONE: "Europe/Amsterdam"
           CURRENCIES: ""
