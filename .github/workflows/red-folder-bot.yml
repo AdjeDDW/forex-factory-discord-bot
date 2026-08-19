@@ -17,7 +17,7 @@ on:
           - force-summary
           - force-reminder
           - force-summary-tomorrow
-
+          - force-week-summary
 permissions:
   contents: write
 
