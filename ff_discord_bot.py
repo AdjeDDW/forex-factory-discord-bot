@@ -69,7 +69,7 @@ STATE_RETENTION_DAYS = 3
 
 # Na hoeveel uur een verstuurd Discord-bericht (dagoverzicht of reminder) automatisch
 # weer verwijderd wordt uit het kanaal.
-MESSAGE_DELETE_AFTER_HOURS = 24
+MESSAGE_DELETE_AFTER_HOURS = 0.25  # TIJDELIJK voor test (15 min) -- normaal 24
 
 
 # ---------------------------------------------------------------------------
