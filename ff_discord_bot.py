@@ -295,7 +295,11 @@ def run_force_summary() -> None:
         print(f"Kon Forex Factory kalender niet ophalen: {exc}")
         return
     todays_red = [e for e in red_events if parse_event_time(e).strftime("%Y-%m-%d") == today_str]
-    send_discord_message(build_summary_message(todays_red, "vandaag"))
+message_id =     send_discord_message(build_summary_message(todays_red, "vandaag"))
+if message_id:
+    state = load_state()
+    track_sent_message(state, message_id, now)
+    save_state(state)
 
 
 def run_force_summary_tomorrow() -> None:
@@ -308,7 +312,11 @@ def run_force_summary_tomorrow() -> None:
         print(f"Kon Forex Factory kalender niet ophalen: {exc}")
         return
     tomorrows_red = [e for e in red_events if parse_event_time(e).strftime("%Y-%m-%d") == tomorrow_str]
-    send_discord_message(build_summary_message(tomorrows_red, "morgen"))
+message_id =     send_discord_message(build_summary_message(tomorrows_red, "morgen"))
+if message_id:
+    state = load_state()
+    track_sent_message(state, message_id, now)
+    save_state(state)
 
 
 def run_force_reminder() -> None:
@@ -328,7 +336,12 @@ def run_force_reminder() -> None:
     e = upcoming[0]
     t = parse_event_time(e)
     minutes_until = (t - now).total_seconds() / 60
-    send_discord_message(build_reminder_message(e, minutes_until))
+        message_id = send_discord_message(build_reminder_message(e, minutes_until)) 
+    if message_id:
+        state = load_state()
+        track_sent_message(state, message_id, now)
+        save_state(state)
+
 
 
 # ---------------------------------------------------------------------------
