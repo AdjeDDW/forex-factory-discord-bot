@@ -67,6 +67,10 @@ STATE_FILE = Path(__file__).resolve().parent / "state.json"
 # eindeloos blijft groeien).
 STATE_RETENTION_DAYS = 3
 
+# Na hoeveel uur een verstuurd Discord-bericht (dagoverzicht of reminder) automatisch
+# weer verwijderd wordt uit het kanaal.
+MESSAGE_DELETE_AFTER_HOURS = 24
+
 
 # ---------------------------------------------------------------------------
 # State (onthouden wat al gestuurd is, zodat we niet dubbel melden)
@@ -77,7 +81,7 @@ def load_state() -> dict:
             return json.loads(STATE_FILE.read_text())
         except json.JSONDecodeError:
             pass
-    return {"last_summary_date": None, "notified_events": {}}
+    return {"last_summary_date": None, "notified_events": {}, "sent_messages": []}
 
 
 def save_state(state: dict) -> None:
@@ -96,6 +100,32 @@ def prune_notified_events(state: dict, now: datetime) -> None:
         if added >= cutoff:
             kept[eid] = added_iso
     state["notified_events"] = kept
+
+
+def track_sent_message(state: dict, message_id: str, now: datetime) -> None:
+    """Onthoudt een verstuurd bericht (met tijdstip), zodat het later automatisch
+    verwijderd kan worden."""
+    if not message_id:
+        return
+    state.setdefault("sent_messages", []).append({"id": message_id, "posted_at": now.isoformat()})
+
+
+def cleanup_old_messages(state: dict, now: datetime) -> None:
+    """Verwijdert Discord-berichten die de bot eerder heeft gestuurd en die ouder zijn
+    dan MESSAGE_DELETE_AFTER_HOURS (dus het event/dagoverzicht is dan al lang geweest)."""
+    sent = state.get("sent_messages", [])
+    cutoff = now - timedelta(hours=MESSAGE_DELETE_AFTER_HOURS)
+    remaining = []
+    for m in sent:
+        try:
+            posted = datetime.fromisoformat(m["posted_at"])
+        except (KeyError, ValueError, TypeError):
+            continue
+        if posted <= cutoff:
+            delete_discord_message(m.get("id"))
+        else:
+            remaining.append(m)
+    state["sent_messages"] = remaining
 
 
 # ---------------------------------------------------------------------------
@@ -178,26 +208,46 @@ def build_reminder_message(event: dict, minutes_until: float) -> str:
 # ---------------------------------------------------------------------------
 # Discord
 # ---------------------------------------------------------------------------
-def send_discord_message(content: str) -> bool:
-    """Stuurt een bericht naar Discord. Geeft True terug bij succes, False bij mislukking,
-    zodat de aanroeper (main) alleen state bijwerkt als het bericht ook echt is aangekomen."""
+def send_discord_message(content: str):
+    """Stuurt een bericht naar Discord. Geeft het Discord message-ID terug bij succes
+    (nodig om het bericht later automatisch te kunnen verwijderen), of None bij mislukking.
+    De aanroeper (main) mag dus gewoon `if send_discord_message(...):` blijven doen."""
     if not WEBHOOK_URL:
         print("WAARSCHUWING: geen DISCORD_WEBHOOK_URL ingesteld in .env. Bericht niet verstuurd:")
         print(content)
-        return False
+        return None
     try:
         resp = requests.post(
-            WEBHOOK_URL,
+            f"{WEBHOOK_URL}?wait=true",  # ?wait=true zodat Discord het bericht (incl. id) teruggeeft
             json={"content": content, "allowed_mentions": {"parse": ["roles"]}},
             timeout=15,
         )
     except requests.RequestException as exc:
         print(f"Netwerkfout bij versturen naar Discord: {exc}")
-        return False
+        return None
     if resp.status_code >= 300:
         print(f"Fout bij versturen naar Discord ({resp.status_code}): {resp.text}")
-        return False
+        return None
     print("Bericht verstuurd naar Discord.")
+    try:
+        return resp.json().get("id")
+    except ValueError:
+        return None
+
+
+def delete_discord_message(message_id) -> bool:
+    """Verwijdert een eerder door deze webhook verstuurd bericht. 404 (al weg) telt ook als oke."""
+    if not WEBHOOK_URL or not message_id:
+        return False
+    try:
+        resp = requests.delete(f"{WEBHOOK_URL}/messages/{message_id}", timeout=15)
+    except requests.RequestException as exc:
+        print(f"Netwerkfout bij verwijderen van bericht {message_id}: {exc}")
+        return False
+    if resp.status_code not in (200, 204, 404):
+        print(f"Fout bij verwijderen van bericht {message_id} ({resp.status_code}): {resp.text}")
+        return False
+    print(f"Oud bericht {message_id} verwijderd (ouder dan {MESSAGE_DELETE_AFTER_HOURS} uur).")
     return True
 
 
@@ -288,6 +338,7 @@ def main() -> None:
     now = datetime.now(LOCAL_TZ)
     state = load_state()
     prune_notified_events(state, now)
+    cleanup_old_messages(state, now)
 
     try:
         raw_events = fetch_calendar()
@@ -296,7 +347,6 @@ def main() -> None:
         return
 
     red_events = [e for e in raw_events if is_red_folder(e) and currency_allowed(e)]
-
 
     # --- 1) Dagelijks overzicht ---
     today_str = now.strftime("%Y-%m-%d")
@@ -312,12 +362,14 @@ def main() -> None:
                 e for e in red_events
                 if parse_event_time(e).strftime("%Y-%m-%d") == today_str
             ]
-            success = send_discord_message(build_summary_message(todays_red, "vandaag"))
-            if success:
+            message_id = send_discord_message(build_summary_message(todays_red, "vandaag"))
+            if message_id:
                 state["last_summary_date"] = today_str
+                track_sent_message(state, message_id, now)
                 save_state(state)
             else:
                 print("Dagoverzicht is NIET gelukt te versturen; wordt bij de volgende run opnieuw geprobeerd.")
+
 
     # --- 2) Losse reminders vlak voor elk event ---
     notified = state.get("notified_events", {})
@@ -329,8 +381,10 @@ def main() -> None:
         t = parse_event_time(e)
         minutes_until = (t - now).total_seconds() / 60
         if 0 <= minutes_until <= REMINDER_MINUTES:
-            if send_discord_message(build_reminder_message(e, minutes_until)):
+            reminder_msg_id = send_discord_message(build_reminder_message(e, minutes_until))
+            if reminder_msg_id:
                 notified[eid] = now.isoformat()
+                track_sent_message(state, reminder_msg_id, now)
                 changed = True
             else:
                 print(f"Reminder voor {eid} is NIET gelukt te versturen; wordt bij de volgende run opnieuw geprobeerd.")
@@ -339,7 +393,7 @@ def main() -> None:
         state["notified_events"] = notified
         save_state(state)
     else:
-        # Zorg dat prune-resultaat ook bewaard blijft ook als er niets nieuws was
+        # Zorg dat prune-/cleanup-resultaat ook bewaard blijft ook als er niets nieuws was
         save_state(state)
 
     print("Klaar (geen extra output hierboven betekent: niets nieuws te melden op dit moment).")
