@@ -1,8 +1,6 @@
 {
   "last_summary_date": "2026-08-22",
-  "notified_events": {
-    "USD|FOMC Meeting Minutes|2026-08-19T14:00:00-04:00": "2026-08-19T19:42:27.755489+02:00"
-  },
+  "notified_events": {},
   "sent_messages": [
     {
       "id": "1540575702334840867",
