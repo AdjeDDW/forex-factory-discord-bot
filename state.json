@@ -1,5 +1,10 @@
 {
-  "last_summary_date": "2026-08-22",
+  "last_summary_date": "2026-08-23",
   "notified_events": {},
-  "sent_messages": []
+  "sent_messages": [
+    {
+      "id": "1540938690501804094",
+      "posted_at": "2026-08-23T06:20:12.911003+02:00"
+    }
+  ]
 }
