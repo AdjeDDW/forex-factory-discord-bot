@@ -152,6 +152,19 @@ def is_red_folder(event: dict) -> bool:
     return str(event.get("impact", "")).strip().lower() == "high"
 
 
+# Trefwoorden waarop we "oranje" (Medium Impact) events herkennen die aan Trump/tarieven
+# gerelateerd zijn -- die worden normaal genegeerd (alleen High Impact telt), maar kunnen
+# toch marktbewegend zijn.
+TRUMP_KEYWORDS = ("trump", "tariff", "tarief", "tarieven")
+
+
+def is_trump_medium_event(event: dict) -> bool:
+    if str(event.get("impact", "")).strip().lower() != "medium":
+        return False
+    title = str(event.get("title", "")).lower()
+    return any(kw in title for kw in TRUMP_KEYWORDS)
+
+
 def currency_allowed(event: dict) -> bool:
     if CURRENCIES is None:
         return True
@@ -164,7 +177,10 @@ def event_id(event: dict) -> str:
 
 def get_red_events() -> list:
     raw_events = fetch_calendar()
-    return [e for e in raw_events if is_red_folder(e) and currency_allowed(e)]
+    return [
+        e for e in raw_events
+        if (is_red_folder(e) or is_trump_medium_event(e)) and currency_allowed(e)
+    ]
 
 
 # ---------------------------------------------------------------------------
@@ -177,6 +193,11 @@ def discord_timestamp(t: datetime, style: str = "R") -> str:
     return f"<t:{int(t.timestamp())}:{style}>"
 
 
+def event_emoji(event: dict) -> str:
+    """Rood voor normale High Impact events, oranje voor de Trump/tarieven Medium Impact events."""
+    return "\U0001F7E0" if str(event.get("impact", "")).strip().lower() == "medium" else "\U0001F534"
+
+
 def build_summary_message(events_for_day: list, label: str) -> str:
     lines = []
     mention = admin_mention()
@@ -187,7 +208,7 @@ def build_summary_message(events_for_day: list, label: str) -> str:
         for e in sorted(events_for_day, key=parse_event_time):
             t = parse_event_time(e)
             lines.append(
-                f"\U0001F534 `{t.strftime('%H:%M')}` — **{e.get('country')}** — {e.get('title')} "
+                f"{event_emoji(e)} `{t.strftime('%H:%M')}` — **{e.get('country')}** — {e.get('title')} "
                 f"({discord_timestamp(t, 'R')})"
             )
     else:
@@ -221,7 +242,7 @@ def build_week_summary_message(events_for_week: list, week_start: datetime) -> s
             for e in day_events:
                 t = parse_event_time(e)
                 lines.append(
-                    f"\U0001F534 `{t.strftime('%H:%M')}` — **{e.get('country')}** — {e.get('title')} "
+                    f"{event_emoji(e)} `{t.strftime('%H:%M')}` — **{e.get('country')}** — {e.get('title')} "
                     f"({discord_timestamp(t, 'R')})"
                 )
         else:
@@ -236,7 +257,7 @@ def build_reminder_message(event: dict, minutes_until: float) -> str:
     if mention:
         lines.append(mention)
     lines.append(f"⚠️ **Red Folder event over {int(round(minutes_until))} minuten!**")
-    lines.append(f"\U0001F534 `{t.strftime('%H:%M')}` — **{event.get('country')}** — {event.get('title')}")
+    lines.append(f"{event_emoji(event)} `{t.strftime('%H:%M')}` — **{event.get('country')}** — {event.get('title')}")
     # Live countdown: Discord telt dit zelf af (en toont het in ieders eigen tijdzone),
     # zonder dat de bot opnieuw hoeft te versturen.
     lines.append(f"⏳ Start {discord_timestamp(t, 'R')} ({discord_timestamp(t, 't')})")
@@ -416,7 +437,10 @@ def main() -> None:
         print(f"Kon Forex Factory kalender niet ophalen: {exc}")
         return
 
-    red_events = [e for e in raw_events if is_red_folder(e) and currency_allowed(e)]
+    red_events = [
+        e for e in raw_events
+        if (is_red_folder(e) or is_trump_medium_event(e)) and currency_allowed(e)
+    ]
 
     # --- 1) Dagelijks overzicht (op maandag: wekelijks overzicht i.p.v. dagoverzicht) ---
     today_str = now.strftime("%Y-%m-%d")
