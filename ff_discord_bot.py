@@ -206,6 +206,12 @@ def event_emoji(event: dict) -> str:
     return "\U0001F534"
 
 
+def event_time_label(event: dict, t: datetime) -> str:
+    """Bank holidays hebben geen zinvol kloktijdstip (Forex Factory zet er altijd
+    hetzelfde vaste tijdstip bij) -- toon dan gewoon "Hele dag" in plaats van HH:MM."""
+    return "Hele dag" if is_bank_holiday(event) else t.strftime("%H:%M")
+
+
 def build_summary_message(events_for_day: list, label: str) -> str:
     lines = []
     mention = admin_mention()
@@ -216,7 +222,7 @@ def build_summary_message(events_for_day: list, label: str) -> str:
         for e in sorted(events_for_day, key=parse_event_time):
             t = parse_event_time(e)
             lines.append(
-                f"{event_emoji(e)} `{t.strftime('%H:%M')}` — **{e.get('country')}** — {e.get('title')} "
+                f"{event_emoji(e)} `{event_time_label(e, t)}` — **{e.get('country')}** — {e.get('title')} "
                 f"({discord_timestamp(t, 'R')})"
             )
     else:
@@ -250,7 +256,7 @@ def build_week_summary_message(events_for_week: list, week_start: datetime) -> s
             for e in day_events:
                 t = parse_event_time(e)
                 lines.append(
-                    f"{event_emoji(e)} `{t.strftime('%H:%M')}` — **{e.get('country')}** — {e.get('title')} "
+                    f"{event_emoji(e)} `{event_time_label(e, t)}` — **{e.get('country')}** — {e.get('title')} "
                     f"({discord_timestamp(t, 'R')})"
                 )
         else:
@@ -265,7 +271,7 @@ def build_reminder_message(event: dict, minutes_until: float) -> str:
     if mention:
         lines.append(mention)
     lines.append(f"⚠️ **Red Folder event over {int(round(minutes_until))} minuten!**")
-    lines.append(f"{event_emoji(event)} `{t.strftime('%H:%M')}` — **{event.get('country')}** — {event.get('title')}")
+    lines.append(f"{event_emoji(event)} `{event_time_label(event, t)}` — **{event.get('country')}** — {event.get('title')}")
     # Live countdown: Discord telt dit zelf af (en toont het in ieders eigen tijdzone),
     # zonder dat de bot opnieuw hoeft te versturen.
     lines.append(f"⏳ Start {discord_timestamp(t, 'R')} ({discord_timestamp(t, 't')})")
