@@ -1,11 +1,16 @@
 {
-  "last_summary_date": "2026-09-06",
+  "last_summary_date": "2026-09-07",
   "notified_events": {},
   "sent_messages": [
     {
       "id": "1546056569429565442",
       "posted_at": "2026-09-06T09:16:50.300373+02:00"
+    },
+    {
+      "id": "1546385370747248700",
+      "posted_at": "2026-09-07T07:03:22.624383+02:00",
+      "delete_after_hours": 120
     }
   ],
-  "last_week_summary_date": "2026-08-31"
+  "last_week_summary_date": "2026-09-07"
 }
