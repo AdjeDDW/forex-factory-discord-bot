@@ -152,17 +152,20 @@ def is_red_folder(event: dict) -> bool:
     return str(event.get("impact", "")).strip().lower() == "high"
 
 
-# Trefwoorden waarop we "oranje" (Medium Impact) events herkennen die aan Trump/tarieven
-# gerelateerd zijn -- die worden normaal genegeerd (alleen High Impact telt), maar kunnen
-# toch marktbewegend zijn.
+# Trefwoorden waarop we events herkennen die aan Trump/tarieven gerelateerd zijn -- die
+# worden normaal genegeerd (alleen High Impact telt standaard mee), maar kunnen toch
+# marktbewegend zijn, ongeacht welk impact-niveau Forex Factory er zelf aan hangt
+# (bv. "Trump Speaks" staat er soms als Low, soms als Medium impact op).
 TRUMP_KEYWORDS = ("trump", "tariff", "tarief", "tarieven")
 
 
-def is_trump_medium_event(event: dict) -> bool:
-    if str(event.get("impact", "")).strip().lower() != "medium":
-        return False
+def is_trump_related_event(event: dict) -> bool:
     title = str(event.get("title", "")).lower()
     return any(kw in title for kw in TRUMP_KEYWORDS)
+
+
+def is_bank_holiday(event: dict) -> bool:
+    return str(event.get("impact", "")).strip().lower() == "holiday"
 
 
 def currency_allowed(event: dict) -> bool:
@@ -179,7 +182,7 @@ def get_red_events() -> list:
     raw_events = fetch_calendar()
     return [
         e for e in raw_events
-        if (is_red_folder(e) or is_trump_medium_event(e)) and currency_allowed(e)
+        if (is_red_folder(e) or is_trump_related_event(e) or is_bank_holiday(e)) and currency_allowed(e)
     ]
 
 
@@ -194,8 +197,13 @@ def discord_timestamp(t: datetime, style: str = "R") -> str:
 
 
 def event_emoji(event: dict) -> str:
-    """Rood voor normale High Impact events, oranje voor de Trump/tarieven Medium Impact events."""
-    return "\U0001F7E0" if str(event.get("impact", "")).strip().lower() == "medium" else "\U0001F534"
+    """Rood voor normale High Impact events, oranje voor Trump/tarieven-gerelateerde events,
+    een bank-icoon voor bank holidays."""
+    if is_bank_holiday(event):
+        return "\U0001F3E6"
+    if is_trump_related_event(event):
+        return "\U0001F7E0"
+    return "\U0001F534"
 
 
 def build_summary_message(events_for_day: list, label: str) -> str:
@@ -439,7 +447,7 @@ def main() -> None:
 
     red_events = [
         e for e in raw_events
-        if (is_red_folder(e) or is_trump_medium_event(e)) and currency_allowed(e)
+        if (is_red_folder(e) or is_trump_related_event(e) or is_bank_holiday(e)) and currency_allowed(e)
     ]
 
     # --- 1) Dagelijks overzicht (op maandag: wekelijks overzicht i.p.v. dagoverzicht) ---
