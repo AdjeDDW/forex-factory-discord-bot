@@ -1,13 +1,14 @@
 {
-  "last_summary_date": "2026-09-13",
+  "last_summary_date": "2026-09-14",
   "notified_events": {
     "GBP|GDP m/m|2026-09-11T02:00:00-04:00": "2026-09-11T07:59:44.735931+02:00"
   },
   "sent_messages": [
     {
-      "id": "1548574774928740443",
-      "posted_at": "2026-09-13T08:03:17.096723+02:00"
+      "id": "1548923652702076969",
+      "posted_at": "2026-09-14T07:09:35.932305+02:00",
+      "delete_after_hours": 120
     }
   ],
-  "last_week_summary_date": "2026-09-07"
+  "last_week_summary_date": "2026-09-14"
 }
