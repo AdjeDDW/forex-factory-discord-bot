@@ -1,13 +1,12 @@
 {
-  "last_summary_date": "2026-09-20",
-  "notified_events": {
-    "JPY|BOJ Press Conference|2026-09-18T01:30:00-04:00": "2026-09-18T07:10:46.639803+02:00"
-  },
+  "last_summary_date": "2026-09-21",
+  "notified_events": {},
   "sent_messages": [
     {
-      "id": "1551117186104303667",
-      "posted_at": "2026-09-20T08:25:55.045399+02:00"
+      "id": "1551489348778590239",
+      "posted_at": "2026-09-21T09:04:45.245330+02:00",
+      "delete_after_hours": 120
     }
   ],
-  "last_week_summary_date": "2026-09-14"
+  "last_week_summary_date": "2026-09-21"
 }
