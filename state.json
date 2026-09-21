@@ -1,11 +1,17 @@
 {
   "last_summary_date": "2026-09-21",
-  "notified_events": {},
+  "notified_events": {
+    "JPY|Bank Holiday|2026-09-21T19:00:00-04:00": "2026-09-22T00:32:58.641015+02:00"
+  },
   "sent_messages": [
     {
       "id": "1551489348778590239",
       "posted_at": "2026-09-21T09:04:45.245330+02:00",
       "delete_after_hours": 120
+    },
+    {
+      "id": "1551722941891354646",
+      "posted_at": "2026-09-22T00:32:58.641015+02:00"
     }
   ],
   "last_week_summary_date": "2026-09-21"
