@@ -1,13 +1,12 @@
 {
-  "last_summary_date": "2026-10-18",
-  "notified_events": {
-    "GBP|BOE Gov Bailey Speaks|2026-10-15T22:00:00-04:00": "2026-10-16T03:40:38.609848+02:00"
-  },
+  "last_summary_date": "2026-10-19",
+  "notified_events": {},
   "sent_messages": [
     {
-      "id": "1561258581645336668",
-      "posted_at": "2026-10-18T08:04:12.349757+02:00"
+      "id": "1561631605171290203",
+      "posted_at": "2026-10-19T08:46:27.941433+02:00",
+      "delete_after_hours": 120
     }
   ],
-  "last_week_summary_date": "2026-10-12"
+  "last_week_summary_date": "2026-10-19"
 }
