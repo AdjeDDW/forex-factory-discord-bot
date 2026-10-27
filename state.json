@@ -1,5 +1,5 @@
 {
-  "last_summary_date": "2026-10-26",
+  "last_summary_date": "2026-10-27",
   "notified_events": {
     "CHF|Daylight Saving Time Shift|2026-10-24T21:00:00-04:00": "2026-10-25T01:50:54.259702+02:00",
     "EUR|Daylight Saving Time Shift|2026-10-24T21:00:00-04:00": "2026-10-25T01:50:54.259702+02:00",
@@ -10,6 +10,10 @@
       "id": "1564170186091790367",
       "posted_at": "2026-10-26T07:53:52.796488+01:00",
       "delete_after_hours": 120
+    },
+    {
+      "id": "1564545205611532319",
+      "posted_at": "2026-10-27T08:44:04.433659+01:00"
     }
   ],
   "last_week_summary_date": "2026-10-26"
