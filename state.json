@@ -1,11 +1,17 @@
 {
   "last_summary_date": "2026-11-02",
-  "notified_events": {},
+  "notified_events": {
+    "AUD|RBA Press Conference|2026-11-02T23:30:00-05:00": "2026-11-03T04:38:07.846285+01:00"
+  },
   "sent_messages": [
     {
       "id": "1566690051314810941",
       "posted_at": "2026-11-02T06:46:55.689937+01:00",
       "delete_after_hours": 120
+    },
+    {
+      "id": "1567020026039369909",
+      "posted_at": "2026-11-03T04:38:07.846285+01:00"
     }
   ],
   "last_week_summary_date": "2026-11-02"
