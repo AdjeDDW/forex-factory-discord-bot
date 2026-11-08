@@ -1,5 +1,5 @@
 {
-  "last_summary_date": "2026-11-07",
+  "last_summary_date": "2026-11-08",
   "notified_events": {
     "GBP|BOE Monetary Policy Report|2026-11-05T07:00:00-05:00": "2026-11-05T12:31:37.743270+01:00",
     "GBP|Monetary Policy Summary|2026-11-05T07:00:00-05:00": "2026-11-05T12:31:37.743270+01:00",
@@ -9,8 +9,8 @@
   },
   "sent_messages": [
     {
-      "id": "1568555108650979480",
-      "posted_at": "2026-11-07T10:17:59.942297+01:00"
+      "id": "1568911114908078201",
+      "posted_at": "2026-11-08T09:52:38.303457+01:00"
     }
   ],
   "last_week_summary_date": "2026-11-02"
