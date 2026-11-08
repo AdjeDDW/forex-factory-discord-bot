@@ -1,12 +1,6 @@
 {
   "last_summary_date": "2026-11-08",
-  "notified_events": {
-    "GBP|BOE Monetary Policy Report|2026-11-05T07:00:00-05:00": "2026-11-05T12:31:37.743270+01:00",
-    "GBP|Monetary Policy Summary|2026-11-05T07:00:00-05:00": "2026-11-05T12:31:37.743270+01:00",
-    "GBP|MPC Official Bank Rate Votes|2026-11-05T07:00:00-05:00": "2026-11-05T12:31:37.743270+01:00",
-    "GBP|Official Bank Rate|2026-11-05T07:00:00-05:00": "2026-11-05T12:31:37.743270+01:00",
-    "GBP|BOE Gov Bailey Speaks|2026-11-05T07:30:00-05:00": "2026-11-05T12:31:37.743270+01:00"
-  },
+  "notified_events": {},
   "sent_messages": [
     {
       "id": "1568911114908078201",
